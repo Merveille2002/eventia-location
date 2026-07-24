@@ -15,4 +15,54 @@
  * Ne placez ici aucune logique MongoDB, Express ou Axios.
  */
 export default class Equipment {
+  /**
+   * Crée un matériel à partir de ses caractéristiques commerciales et de stock.
+   *
+   * Les valeurs numériques sont converties ici afin que l'entité manipule
+   * toujours des nombres, peu importe leur provenance (formulaire, API, etc.).
+   */
+  constructor(name, category, dailyPrice, availableQuantity) {
+    this.name = typeof name === "string" ? name.trim() : "";
+    this.category = typeof category === "string" ? category.trim() : "";
+    this.dailyPrice = Number(dailyPrice);
+    this.availableQuantity = Number(availableQuantity);
+  }
+
+  /**
+   * Vérifie les règles simples propres à un matériel.
+   *
+   * @returns {{ valid: boolean, errors: string[] }}
+   */
+  isValid() {
+    const errors = [];
+
+    if (!this.name) {
+      errors.push("Le nom est obligatoire.");
+    }
+
+    if (!this.category) {
+      errors.push("La catégorie est obligatoire.");
+    }
+
+    if (!Number.isFinite(this.dailyPrice) || this.dailyPrice < 0) {
+      errors.push("Le prix quotidien doit être un nombre positif.");
+    }
+
+    if (!Number.isInteger(this.availableQuantity) || this.availableQuantity < 0) {
+      errors.push("La quantité disponible doit être un entier positif ou nul.");
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors,
+    };
+  }
+
+  /**
+   * Indique si la quantité demandée peut être prélevée du stock actuel.
+   */
+  canReserve(quantity) {
+    const requested = Number(quantity);
+    return Number.isInteger(requested) && requested > 0 && requested <= this.availableQuantity;
+  }
 }
