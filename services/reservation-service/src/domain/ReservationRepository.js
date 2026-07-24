@@ -57,4 +57,11 @@ export default class ReservationRepository {
       runValidators: true,
     });
   }
+
+  /**
+   * Supprime une réservation.
+   */
+  async delete(id) {
+    await this.reservationModel.findByIdAndDelete(id);
+  }
 }

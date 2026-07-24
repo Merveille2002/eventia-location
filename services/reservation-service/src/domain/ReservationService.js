@@ -132,6 +132,22 @@ export default class ReservationService {
     return updatedReservation;
   }
 
+  /**
+   * Supprime définitivement une réservation, après avoir confirmé son
+   * existence. Contrairement à cancel(), cette opération ne remet pas le
+   * matériel en disponibilité : la remise en stock est une conséquence
+   * métier de l'annulation, pas de la suppression d'un enregistrement.
+   */
+  async remove(id) {
+    const reservation = await this.reservationRepository.findById(id);
+
+    if (!reservation) {
+      throw serviceError("Réservation introuvable.", 404);
+    }
+
+    await this.reservationRepository.delete(id);
+  }
+
   async #fetchClient(clientId) {
     try {
       const response = await axios.get(`${this.clientServiceUrl}/${clientId}`);
