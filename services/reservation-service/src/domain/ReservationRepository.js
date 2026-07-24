@@ -59,6 +59,20 @@ export default class ReservationRepository {
   }
 
   /**
+   * Passe atomiquement une réservation confirmée à l'état annulé.
+   *
+   * Le filtre sur le statut empêche deux demandes concurrentes d'annuler la
+   * même réservation et donc de remettre deux fois le matériel en stock.
+   */
+  async cancelIfConfirmed(id) {
+    return this.reservationModel.findOneAndUpdate(
+      { _id: id, status: "CONFIRMED" },
+      { status: "CANCELLED" },
+      { new: true, runValidators: true },
+    );
+  }
+
+  /**
    * Supprime une réservation.
    */
   async delete(id) {

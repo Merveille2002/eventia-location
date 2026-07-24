@@ -84,23 +84,46 @@ export default class ReservationService {
     const client = await this.#fetchClient(reservation.clientId);
     const equipment = await this.#fetchEquipment(reservation.equipmentId);
 
-    await this.#reserveStock(reservation.equipmentId, reservation.quantity);
+    let stockReserved = false;
+    let savedReservation = null;
 
-    reservation.clientName = client.name;
-    reservation.equipmentName = equipment.name;
-    reservation.calculateTotal(equipment.dailyPrice);
+    try {
+      await this.#reserveStock(reservation.equipmentId, reservation.quantity);
+      stockReserved = true;
 
-    const savedReservation = await this.reservationRepository.create(reservation);
+      reservation.clientName = client.name;
+      reservation.clientEmail = client.email;
+      reservation.equipmentName = equipment.name;
+      reservation.calculateTotal(equipment.dailyPrice);
 
-    await this.#notify(
-      reservation.clientName,
-      `Réservation confirmée pour ${reservation.equipmentName} (x${reservation.quantity}) du ` +
-        `${reservation.startDate.toISOString().slice(0, 10)} au ${reservation.endDate.toISOString().slice(0, 10)}. ` +
-        `Total : ${reservation.totalPrice} $.`,
-      "RESERVATION_CONFIRMED"
-    );
+      savedReservation = await this.reservationRepository.create(reservation);
 
-    return savedReservation;
+      await this.#notify(
+        client.email,
+        `Réservation confirmée pour ${reservation.equipmentName} (x${reservation.quantity}) du ` +
+          `${reservation.startDate.toISOString().slice(0, 10)} au ${reservation.endDate.toISOString().slice(0, 10)}. ` +
+          `Total : ${reservation.totalPrice} $.`,
+        "RESERVATION_CONFIRMED",
+      );
+
+      return savedReservation;
+    } catch (error) {
+      if (savedReservation?._id) {
+        await this.#compensate(
+          () => this.reservationRepository.delete(savedReservation._id),
+          "suppression de la réservation",
+        );
+      }
+
+      if (stockReserved) {
+        await this.#compensate(
+          () => this.#releaseStock(reservation.equipmentId, reservation.quantity),
+          "remise en stock",
+        );
+      }
+
+      throw error;
+    }
   }
 
   /**
@@ -119,14 +142,27 @@ export default class ReservationService {
       throw serviceError("Cette réservation est déjà annulée.", 400);
     }
 
-    await this.#releaseStock(reservation.equipmentId, reservation.quantity);
+    const updatedReservation =
+      await this.reservationRepository.cancelIfConfirmed(id);
 
-    const updatedReservation = await this.reservationRepository.update(id, { status: "CANCELLED" });
+    if (!updatedReservation) {
+      throw serviceError("Cette réservation est déjà annulée.", 400);
+    }
+
+    try {
+      await this.#releaseStock(reservation.equipmentId, reservation.quantity);
+    } catch (error) {
+      await this.#compensate(
+        () => this.reservationRepository.update(id, { status: "CONFIRMED" }),
+        "restauration du statut de la réservation",
+      );
+      throw error;
+    }
 
     await this.#notify(
-      reservation.clientName,
+      reservation.clientEmail || reservation.clientName,
       `Réservation annulée pour ${reservation.equipmentName} (x${reservation.quantity}).`,
-      "RESERVATION_CANCELLED"
+      "RESERVATION_CANCELLED",
     );
 
     return updatedReservation;
@@ -187,6 +223,14 @@ export default class ReservationService {
       await axios.post(this.notificationServiceUrl, { recipient, message, type });
     } catch (error) {
       throw externalServiceError(error, "Impossible d'enregistrer la notification.");
+    }
+  }
+
+  async #compensate(action, operation) {
+    try {
+      await action();
+    } catch (error) {
+      console.error(`Échec de compensation (${operation}) :`, error.message);
     }
   }
 }

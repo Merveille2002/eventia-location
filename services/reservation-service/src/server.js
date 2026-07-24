@@ -11,6 +11,7 @@ const reservationSchema = new mongoose.Schema(
     clientId: { type: String, required: true },
     equipmentId: { type: String, required: true },
     clientName: { type: String },
+    clientEmail: { type: String },
     equipmentName: { type: String },
     quantity: { type: Number, required: true, min: 1 },
     startDate: { type: Date, required: true },

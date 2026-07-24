@@ -9,6 +9,10 @@ function handle(action) {
     try {
       await action(req, res);
     } catch (err) {
+      if (err.name === "CastError") {
+        return res.status(404).json({ message: "Matériel introuvable." });
+      }
+
       res.status(err.status || 500).json({ message: err.message });
     }
   };

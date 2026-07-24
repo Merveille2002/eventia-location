@@ -34,6 +34,7 @@ export default class Reservation {
     this.endDate = new Date(endDate);
     this.status = status || "CONFIRMED";
     this.clientName = undefined;
+    this.clientEmail = undefined;
     this.equipmentName = undefined;
     this.totalPrice = undefined;
   }

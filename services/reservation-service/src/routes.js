@@ -9,6 +9,10 @@ function handle(action) {
     try {
       await action(req, res);
     } catch (err) {
+      if (err.name === "CastError") {
+        return res.status(404).json({ message: "Réservation introuvable." });
+      }
+
       res.status(err.status || 500).json({ message: err.message });
     }
   };
@@ -31,10 +35,16 @@ export default function createReservationRoutes(reservationService) {
     res.status(201).json(reservation);
   }));
 
-  router.patch("/:id/cancel", handle(async (req, res) => {
+  const cancelReservation = handle(async (req, res) => {
     const reservation = await reservationService.cancel(req.params.id);
     res.status(200).json(reservation);
-  }));
+  });
+
+  // Contrat REST officiel de l'énoncé.
+  router.put("/:id/cancel", cancelReservation);
+
+  // Compatibilité avec le frontend fourni, qui utilise PATCH.
+  router.patch("/:id/cancel", cancelReservation);
 
   router.delete("/:id", handle(async (req, res) => {
     await reservationService.remove(req.params.id);
