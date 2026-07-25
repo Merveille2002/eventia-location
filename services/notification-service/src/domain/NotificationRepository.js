@@ -14,4 +14,29 @@
  * Elle ne doit contenir aucune règle de validation métier.
  */
 export default class NotificationRepository {
+  /**
+   * @param {import("mongoose").Model} notificationModel Modèle Mongoose de la notification.
+   */
+  constructor(notificationModel) {
+    if (!notificationModel) {
+      throw new TypeError("Le modèle Mongoose de la notification est obligatoire.");
+    }
+
+    this.notificationModel = notificationModel;
+  }
+
+  /**
+   * Enregistre une nouvelle notification.
+   */
+  async create(notification) {
+    return this.notificationModel.create(notification);
+  }
+
+  /**
+   * Retourne l'historique des notifications, de la plus récente à la plus
+   * ancienne.
+   */
+  async findAll() {
+    return this.notificationModel.find().sort({ createdAt: -1 });
+  }
 }
